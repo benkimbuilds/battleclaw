@@ -5,16 +5,17 @@
 import { v4 as uuid } from 'uuid';
 import { createHash } from 'crypto';
 import {
-  type Agent, type CooldownState, type GameEvent, type MapResource, type SkillSet, type SpectatorUpdate,
+  type Agent, type CooldownState, type GameEvent, type MapResource, type NPC, type SkillSet, type SpectatorUpdate,
   Terrain, ResourceType, SkillType, EventType,
   MAP_WIDTH, MAP_HEIGHT, MAX_AGENTS, DIRECTIONS,
   xpForLevel, calculateDamage, getCooldown, getVisionRange, getGatherBonus,
   RESPAWN_TIME_MS, RESOURCE_SPAWN_INTERVAL_MS, MAX_RESOURCES_ON_MAP, MIN_RESOURCES_ON_MAP, RESOURCE_BURST_COUNT,
   RESOURCE_SPAWN_WEIGHTS, XP_REWARDS, RESOURCE_SYMBOLS,
   SAFE_HAVEN, isInSafeHaven,
+  MAX_NPCS, NPC_HEAL_AMOUNT, NPC_XP_REWARD, NPC_RESPAWN_MS, NPC_SYMBOL,
 } from './types.js';
 import {
-  initDatabase, insertAgent, updateAgent, getAgentById, getAgentByName, getAgentBySession,
+  initDatabase, insertAgent, updateAgent, updateAgentName, getAgentById, getAgentByName, getAgentBySession,
   getAllAgents, getAliveAgents, getAgentAt, insertResource, deleteResource,
   getResourceAt, getAllResources, getResourceCount, getAgentCount, insertEvent, getRecentEvents,
   DEFAULT_SKILLS, DEFAULT_COOLDOWNS, DEFAULT_INVENTORY,
@@ -73,6 +74,83 @@ function findSpawnPoint(): [number, number] {
     }
   }
   return [MAP_WIDTH >> 1, MAP_HEIGHT >> 1];
+}
+
+// ── NPCs (Prey) ─────────────────────────────────
+const npcs: NPC[] = [];
+
+function spawnNpc(): NPC | null {
+  for (let attempts = 0; attempts < 100; attempts++) {
+    const x = 2 + Math.floor(Math.random() * (MAP_WIDTH - 4));
+    const y = 2 + Math.floor(Math.random() * (MAP_HEIGHT - 4));
+    if (isPassable(x, y) && !getAgentAt(x, y) && !getResourceAt(x, y)
+        && !npcs.some(n => n.alive && n.x === x && n.y === y)
+        && !isInSafeHaven(x, y)) {
+      const npc: NPC = { id: uuid(), x, y, alive: true, respawn_at: null };
+      npcs.push(npc);
+      return npc;
+    }
+  }
+  return null;
+}
+
+function initNpcs(): void {
+  npcs.length = 0;
+  for (let i = 0; i < MAX_NPCS; i++) {
+    spawnNpc();
+  }
+  console.log(`[BATTLECLAW] Spawned ${npcs.length} prey NPCs`);
+}
+
+function getNpcAt(x: number, y: number): NPC | null {
+  return npcs.find(n => n.alive && n.x === x && n.y === y) ?? null;
+}
+
+export function getAllNpcs(): NPC[] {
+  return npcs;
+}
+
+function moveNpcRandomly(npc: NPC): void {
+  const dirKeys = Object.keys(DIRECTIONS);
+  // Shuffle attempts — try random directions
+  for (let attempts = 0; attempts < 4; attempts++) {
+    const dir = DIRECTIONS[dirKeys[Math.floor(Math.random() * dirKeys.length)]];
+    const nx = npc.x + dir[0];
+    const ny = npc.y + dir[1];
+    if (isPassable(nx, ny) && !getAgentAt(nx, ny) && !getNpcAt(nx, ny)
+        && !isInSafeHaven(nx, ny)) {
+      npc.x = nx;
+      npc.y = ny;
+      return;
+    }
+  }
+  // Couldn't move — stay put
+}
+
+function tickNpcs(): void {
+  const now = Date.now();
+  for (const npc of npcs) {
+    if (npc.alive) {
+      // 40% chance to move each tick
+      if (Math.random() < 0.4) {
+        moveNpcRandomly(npc);
+      }
+    } else if (npc.respawn_at && now >= npc.respawn_at) {
+      // Respawn at a new random location
+      for (let attempts = 0; attempts < 100; attempts++) {
+        const x = 2 + Math.floor(Math.random() * (MAP_WIDTH - 4));
+        const y = 2 + Math.floor(Math.random() * (MAP_HEIGHT - 4));
+        if (isPassable(x, y) && !getAgentAt(x, y) && !getResourceAt(x, y)
+            && !getNpcAt(x, y) && !isInSafeHaven(x, y)) {
+          npc.x = x;
+          npc.y = y;
+          npc.alive = true;
+          npc.respawn_at = null;
+          break;
+        }
+      }
+    }
+  }
 }
 
 // ── Event Broadcasting ───────────────────────────
@@ -139,6 +217,7 @@ function addXp(agent: Agent, amount: number): boolean {
 export function initGame(): void {
   initDatabase();
   terrain = generateMap();
+  initNpcs();
   console.log(`[BATTLECLAW] Map generated (${MAP_WIDTH}x${MAP_HEIGHT})`);
   console.log(`[BATTLECLAW] Game engine ready`);
 }
@@ -165,12 +244,11 @@ export function register(sessionId: string, name: string, secret?: string): { ok
     if (byName.secret_hash) {
       if (!secret) return { ok: false, error: `Name "${name}" already exists. Provide the correct secret to reconnect.` };
       if (hashSecret(secret) !== byName.secret_hash) return { ok: false, error: 'Incorrect secret for this agent' };
-    }
-    // If agent has an active session, reject
-    if (byName.session_id) {
+    } else if (byName.session_id) {
+      // No secret set and agent has an active session — can't take over without auth
       return { ok: false, error: `Name "${name}" is currently connected from another session` };
     }
-    // Auto-reconnect
+    // Auto-reconnect (secret verified, or no secret + no active session)
     byName.session_id = sessionId;
     byName.last_action_at = Date.now();
     updateAgent(byName);
@@ -214,7 +292,7 @@ export function register(sessionId: string, name: string, secret?: string): { ok
   return { ok: true, agent };
 }
 
-export function look(agentId: string): { ok: true; view: string; agents_nearby: Array<{ name: string; x: number; y: number; hp: number; level: number }>; resources_nearby: Array<{ type: string; x: number; y: number; symbol: string }>; in_safe_haven: boolean } | { ok: false; error: string } {
+export function look(agentId: string): { ok: true; view: string; agents_nearby: Array<{ name: string; x: number; y: number; hp: number; level: number }>; resources_nearby: Array<{ type: string; x: number; y: number; symbol: string }>; npcs_nearby: Array<{ x: number; y: number }>; in_safe_haven: boolean } | { ok: false; error: string } {
   const agent = getAgentById(agentId);
   if (!agent) return { ok: false, error: 'Agent not found' };
   if (!agent.alive) return { ok: false, error: 'You are dead. Respawning soon...' };
@@ -224,6 +302,7 @@ export function look(agentId: string): { ok: true; view: string; agents_nearby: 
   const resources = getAllResources();
   const nearbyAgents: Array<{ name: string; x: number; y: number; hp: number; level: number }> = [];
   const nearbyResources: Array<{ type: string; x: number; y: number; symbol: string }> = [];
+  const nearbyNpcs: Array<{ x: number; y: number }> = [];
 
   // Build ASCII view
   const lines: string[] = [];
@@ -249,6 +328,13 @@ export function look(agentId: string): { ok: true; view: string; agents_nearby: 
         });
         continue;
       }
+      // Check for NPCs (prey)
+      const npc = getNpcAt(vx, vy);
+      if (npc) {
+        line += NPC_SYMBOL;
+        nearbyNpcs.push({ x: vx, y: vy });
+        continue;
+      }
       // Check for resources
       const res = resources.find(r => r.x === vx && r.y === vy);
       if (res) {
@@ -265,7 +351,7 @@ export function look(agentId: string): { ok: true; view: string; agents_nearby: 
   }
 
   const inSafeHaven = isInSafeHaven(agent.x, agent.y);
-  return { ok: true, view: lines.join('\n'), agents_nearby: nearbyAgents, resources_nearby: nearbyResources, in_safe_haven: inSafeHaven };
+  return { ok: true, view: lines.join('\n'), agents_nearby: nearbyAgents, resources_nearby: nearbyResources, npcs_nearby: nearbyNpcs, in_safe_haven: inSafeHaven };
 }
 
 export function move(agentId: string, direction: string): { ok: true; x: number; y: number; terrain: string; in_safe_haven: boolean } | { ok: false; error: string } {
@@ -321,8 +407,25 @@ export function attack(agentId: string, direction: string): { ok: true; target: 
   const tx = agent.x + dx;
   const ty = agent.y + dy;
 
+  // Check for NPC (prey) at target tile first
+  const npc = getNpcAt(tx, ty);
+  if (npc) {
+    // One-shot kill — heal attacker and grant XP
+    npc.alive = false;
+    npc.respawn_at = Date.now() + NPC_RESPAWN_MS;
+    applyCooldown(agent, 'attack');
+    const healAmount = NPC_HEAL_AMOUNT + Math.floor(agent.skills.fortitude * 2);
+    agent.hp = Math.min(agent.max_hp, agent.hp + healAmount);
+    addXp(agent, XP_REWARDS.npc_kill);
+    updateAgent(agent);
+    emitEvent(makeEvent(EventType.NPC_KILLED, agent.id, null, {
+      name: agent.name, heal: healAmount, x: tx, y: ty,
+    }));
+    return { ok: true, target: 'prey', damage: 999, target_hp: 0, killed: true };
+  }
+
   const target = getAgentAt(tx, ty);
-  if (!target) return { ok: false, error: 'No agent in that direction' };
+  if (!target) return { ok: false, error: 'No agent or prey in that direction' };
 
   // Safe haven — no combat allowed
   if (isInSafeHaven(agent.x, agent.y)) return { ok: false, error: 'You are in the Safe Haven — combat is not allowed here' };
@@ -684,6 +787,7 @@ export function startGameLoop(): void {
   tickInterval = setInterval(() => {
     tickRespawns();
     tickResources();
+    tickNpcs();
     tickInactivity();
     broadcast({ type: 'tick', data: getFullState() });
   }, RESOURCE_SPAWN_INTERVAL_MS);
@@ -709,6 +813,7 @@ export function getFullState(): {
     attack: number; defense: number; inventory: Record<string, number>;
   }>;
   resources: Array<{ type: string; x: number; y: number; symbol: string }>;
+  npcs: Array<{ x: number; y: number; alive: boolean }>;
   events: GameEvent[];
   safe_haven: typeof SAFE_HAVEN;
 } {
@@ -730,7 +835,14 @@ export function getFullState(): {
     compositeMap[r.y][r.x] = RESOURCE_SYMBOLS[r.type];
   }
 
-  // Overlay agents
+  // Overlay alive NPCs
+  for (const npc of npcs) {
+    if (npc.alive) {
+      compositeMap[npc.y][npc.x] = NPC_SYMBOL;
+    }
+  }
+
+  // Overlay agents (on top of everything)
   for (const a of agents) {
     if (a.alive) {
       compositeMap[a.y][a.x] = '@';
@@ -750,6 +862,7 @@ export function getFullState(): {
     resources: resources.map(r => ({
       type: r.type, x: r.x, y: r.y, symbol: RESOURCE_SYMBOLS[r.type],
     })),
+    npcs: npcs.map(n => ({ x: n.x, y: n.y, alive: n.alive })),
     events,
     safe_haven: SAFE_HAVEN,
   };
@@ -768,17 +881,49 @@ export function disconnectSession(sessionId: string): void {
   }
 }
 
+export function renameAgent(agentId: string, newName: string): { ok: true; old_name: string; new_name: string } | { ok: false; error: string } {
+  const agent = getAgentById(agentId);
+  if (!agent) return { ok: false, error: 'Agent not found' };
+
+  // Validate new name
+  if (!newName || newName.length < 2 || newName.length > 20) {
+    return { ok: false, error: 'Name must be 2-20 characters' };
+  }
+  if (!/^[a-zA-Z0-9_-]+$/.test(newName)) {
+    return { ok: false, error: 'Name must be alphanumeric (with _ or -)' };
+  }
+
+  // Check if new name is taken
+  const existing = getAgentByName(newName);
+  if (existing && existing.id !== agent.id) {
+    return { ok: false, error: `Name "${newName}" is already taken` };
+  }
+
+  const oldName = agent.name;
+  agent.name = newName;
+  updateAgentName(agent);
+  agent.last_action_at = Date.now();
+  updateAgent(agent);
+
+  emitEvent(makeEvent(EventType.AGENT_REGISTERED, agent.id, null, {
+    name: newName, old_name: oldName, renamed: true,
+  }));
+
+  return { ok: true, old_name: oldName, new_name: newName };
+}
+
 export function reconnectAgent(sessionId: string, agentName: string, secret?: string): { ok: true; agent: Agent } | { ok: false; error: string } {
   const agent = getAgentByName(agentName);
   if (!agent) return { ok: false, error: 'Agent not found' };
-  if (agent.session_id && agent.session_id !== sessionId) {
-    return { ok: false, error: 'Agent is bound to another session' };
-  }
-  // Verify secret if agent has one
+
+  // Verify secret first — if correct, allow taking over even from a stale session
   if (agent.secret_hash) {
     if (!secret) return { ok: false, error: 'This agent requires a secret to reconnect' };
     if (hashSecret(secret) !== agent.secret_hash) return { ok: false, error: 'Incorrect secret' };
   }
+
+  // If already bound to this session, just refresh
+  // If bound to another session but secret was verified above, allow takeover (old session is stale)
   agent.session_id = sessionId;
   agent.last_action_at = Date.now();
   updateAgent(agent);

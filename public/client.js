@@ -10,6 +10,7 @@ let tickCount = 0;
 let ws = null;
 let trackedAgentName = null;
 let latestAgents = [];
+let latestNpcs = [];
 let sprites = null;
 let pulseAnimId = null;
 let safeHaven = null; // { x1, y1, x2, y2 }
@@ -227,86 +228,62 @@ function generateSprites() {
     ctx.fillRect(7, 7, 2, 2);
   });
 
-  // Agent — bright green figure with cyan marker ring
-  s.agent = groundWith((ctx) => {
-    // Bright marker ring behind the figure
-    ctx.fillStyle = '#00ff88';
-    ctx.fillRect(2, 1, 12, 1);
-    ctx.fillRect(1, 2, 1, 12);
-    ctx.fillRect(14, 2, 1, 12);
-    ctx.fillRect(2, 14, 12, 1);
-    // Corner pixels
-    ctx.fillRect(2, 2, 1, 1);
-    ctx.fillRect(13, 2, 1, 1);
-    ctx.fillRect(2, 13, 1, 1);
-    ctx.fillRect(13, 13, 1, 1);
-    // Dark fill inside ring
-    ctx.fillStyle = '#0a2a15';
-    ctx.fillRect(3, 2, 10, 12);
-    ctx.fillRect(2, 3, 12, 10);
-    // Figure body — bright green
-    ctx.fillStyle = '#33ff99';
+  // Helper: draw a lobster shape inside the ring
+  function drawLobster(ctx, bodyColor, highlightColor, darkColor) {
+    // Claws — top left and top right
+    ctx.fillStyle = bodyColor;
+    ctx.fillRect(3, 3, 2, 2);   // left claw base
+    ctx.fillRect(3, 2, 1, 1);   // left claw tip upper
+    ctx.fillRect(2, 3, 1, 1);   // left claw tip outer
+    ctx.fillRect(11, 3, 2, 2);  // right claw base
+    ctx.fillRect(12, 2, 1, 1);  // right claw tip upper
+    ctx.fillRect(13, 3, 1, 1);  // right claw tip outer
+    // Claw arms connecting to body
+    ctx.fillRect(5, 4, 1, 1);
+    ctx.fillRect(10, 4, 1, 1);
     // Head
-    ctx.fillRect(6, 3, 4, 3);
-    // Neck
-    ctx.fillRect(7, 6, 2, 1);
-    // Body
-    ctx.fillRect(5, 7, 6, 3);
-    // Arms
-    ctx.fillRect(3, 7, 2, 2);
-    ctx.fillRect(11, 7, 2, 2);
-    // Legs
-    ctx.fillRect(5, 10, 3, 2);
-    ctx.fillRect(8, 10, 3, 2);
+    ctx.fillRect(6, 3, 4, 2);
     // Eyes
     ctx.fillStyle = '#ffffff';
-    ctx.fillRect(7, 4, 1, 1);
-    ctx.fillRect(9, 4, 1, 1);
+    ctx.fillRect(7, 3, 1, 1);
+    ctx.fillRect(8, 3, 1, 1);
+    // Body segments
+    ctx.fillStyle = bodyColor;
+    ctx.fillRect(6, 5, 4, 1);   // segment 1
+    ctx.fillRect(5, 6, 6, 1);   // segment 2 (wider)
+    ctx.fillRect(6, 7, 4, 1);   // segment 3
+    ctx.fillRect(5, 8, 6, 1);   // segment 4 (wider)
+    ctx.fillRect(6, 9, 4, 1);   // segment 5
+    // Segment highlights
+    ctx.fillStyle = highlightColor;
+    ctx.fillRect(7, 5, 2, 1);
+    ctx.fillRect(7, 7, 2, 1);
+    ctx.fillRect(7, 9, 2, 1);
+    // Legs — 3 pairs along the body
+    ctx.fillStyle = darkColor;
+    ctx.fillRect(4, 6, 1, 1);  ctx.fillRect(11, 6, 1, 1);
+    ctx.fillRect(4, 8, 1, 1);  ctx.fillRect(11, 8, 1, 1);
+    ctx.fillRect(5, 10, 1, 1); ctx.fillRect(10, 10, 1, 1);
+    // Tail fan
+    ctx.fillStyle = bodyColor;
+    ctx.fillRect(6, 10, 4, 1);  // tail base
+    ctx.fillRect(5, 11, 6, 1);  // tail fan
+    ctx.fillRect(4, 12, 3, 1);  // left fan tip
+    ctx.fillRect(9, 12, 3, 1);  // right fan tip
+    ctx.fillRect(7, 12, 2, 1);  // center fan
+    // Tail highlight
+    ctx.fillStyle = highlightColor;
+    ctx.fillRect(7, 11, 2, 1);
+  }
+
+  // Agent — red lobster (no outline)
+  s.agent = groundWith((ctx) => {
+    drawLobster(ctx, '#ee3333', '#ff8866', '#991a1a');
   });
 
-  // Tracked Agent — bright yellow/gold figure with glowing ring
+  // Tracked Agent — gold lobster (no outline)
   s.trackedAgent = groundWith((ctx) => {
-    // Bright marker ring behind the figure
-    ctx.fillStyle = '#ffdd00';
-    ctx.fillRect(2, 1, 12, 1);
-    ctx.fillRect(1, 2, 1, 12);
-    ctx.fillRect(14, 2, 1, 12);
-    ctx.fillRect(2, 14, 12, 1);
-    ctx.fillRect(2, 2, 1, 1);
-    ctx.fillRect(13, 2, 1, 1);
-    ctx.fillRect(2, 13, 1, 1);
-    ctx.fillRect(13, 13, 1, 1);
-    // Outer glow ring
-    ctx.fillStyle = 'rgba(255, 221, 0, 0.4)';
-    ctx.fillRect(1, 0, 14, 1);
-    ctx.fillRect(0, 1, 1, 14);
-    ctx.fillRect(15, 1, 1, 14);
-    ctx.fillRect(1, 15, 14, 1);
-    // Dark fill inside ring
-    ctx.fillStyle = '#2a2200';
-    ctx.fillRect(3, 2, 10, 12);
-    ctx.fillRect(2, 3, 12, 10);
-    // Figure body — bright gold
-    ctx.fillStyle = '#ffee55';
-    // Head
-    ctx.fillRect(6, 3, 4, 3);
-    // Neck
-    ctx.fillRect(7, 6, 2, 1);
-    // Body
-    ctx.fillRect(5, 7, 6, 3);
-    // Arms
-    ctx.fillRect(3, 7, 2, 2);
-    ctx.fillRect(11, 7, 2, 2);
-    // Legs
-    ctx.fillRect(5, 10, 3, 2);
-    ctx.fillRect(8, 10, 3, 2);
-    // Eyes
-    ctx.fillStyle = '#ffffff';
-    ctx.fillRect(7, 4, 1, 1);
-    ctx.fillRect(9, 4, 1, 1);
-    // Crown/highlight on head
-    ctx.fillStyle = '#ffffff';
-    ctx.fillRect(7, 3, 2, 1);
+    drawLobster(ctx, '#ffee55', '#ffffff', '#cc9900');
   });
 
   // Safe Haven ground — lighter warm tile with subtle cross pattern
@@ -324,6 +301,37 @@ function generateSprites() {
     ctx.fillRect(0, 0, 1, S);
   });
 
+  // Prey NPC — small critter on ground
+  s.prey = groundWith((ctx) => {
+    // Body — small round brown/tan creature
+    ctx.fillStyle = '#aa8855';
+    ctx.fillRect(6, 6, 4, 4);
+    ctx.fillRect(5, 7, 6, 2);
+    // Head
+    ctx.fillRect(7, 5, 2, 1);
+    // Ears
+    ctx.fillStyle = '#cc9966';
+    ctx.fillRect(6, 4, 1, 2);
+    ctx.fillRect(9, 4, 1, 2);
+    // Eyes
+    ctx.fillStyle = '#000000';
+    ctx.fillRect(7, 6, 1, 1);
+    ctx.fillRect(8, 6, 1, 1);
+    // Legs
+    ctx.fillStyle = '#886644';
+    ctx.fillRect(5, 10, 1, 2);
+    ctx.fillRect(7, 10, 1, 2);
+    ctx.fillRect(8, 10, 1, 2);
+    ctx.fillRect(10, 10, 1, 2);
+    // Tail
+    ctx.fillStyle = '#cc9966';
+    ctx.fillRect(11, 7, 2, 1);
+    ctx.fillRect(12, 6, 1, 1);
+    // Belly highlight
+    ctx.fillStyle = '#ccaa77';
+    ctx.fillRect(6, 8, 4, 1);
+  });
+
   return s;
 }
 
@@ -337,6 +345,7 @@ const TERRAIN_SPRITES = {
   '◆': 'metal',
   '♣': 'biomass',
   '★': 'artifact',
+  'p': 'prey',
 };
 
 // ── Legend ────────────────────────────────────────
@@ -346,6 +355,7 @@ function buildLegend() {
   const items = [
     ['agent', 'agent'],
     ['trackedAgent', 'tracked'],
+    ['prey', 'prey'],
     ['safeHaven', 'safe haven'],
     ['wall', 'wall'],
     ['water', 'water'],
@@ -422,6 +432,7 @@ let eventsLoaded = false;
 
 function renderState(state) {
   latestAgents = state.agents;
+  latestNpcs = (state.npcs || []).filter(n => n.alive);
   if (state.safe_haven) safeHaven = state.safe_haven;
 
   // Load persisted events on first state message
@@ -438,7 +449,7 @@ function renderState(state) {
   renderLeaderboard(state.agents);
   renderAgents(state.agents);
   document.getElementById('agent-count').textContent = `${state.agents.length} agents`;
-  document.getElementById('resource-count').textContent = `${state.resources.length} resources`;
+  document.getElementById('resource-count').textContent = `${state.resources.length} resources | ${latestNpcs.length} prey`;
   updateTrackStatus();
   scrollToTrackedAgent();
 }
@@ -453,8 +464,8 @@ function renderState(state) {
 //   9+:  crown (golden crown above the head)
 
 function drawLevelDecoration(ctx, px, py, level, isTracked) {
-  const color = isTracked ? '#ffdd00' : '#00ff88';
-  const bright = isTracked ? '#ffffff' : '#aaffcc';
+  const color = isTracked ? '#ffdd00' : '#ff4444';
+  const bright = isTracked ? '#ffffff' : '#ff9977';
 
   if (level >= 3) {
     // Rank pip — small diamond at bottom-right
@@ -467,30 +478,31 @@ function drawLevelDecoration(ctx, px, py, level, isTracked) {
   }
 
   if (level >= 5) {
-    // Armor — shoulder guard pixels
-    ctx.fillStyle = isTracked ? '#ccaa00' : '#009955';
-    ctx.fillRect(px + 3, py + 6, 2, 1);
-    ctx.fillRect(px + 11, py + 6, 2, 1);
+    // Armored shell — extra pixels on body segments
+    ctx.fillStyle = isTracked ? '#ccaa00' : '#991a1a';
+    ctx.fillRect(px + 4, py + 6, 1, 1);
+    ctx.fillRect(px + 11, py + 6, 1, 1);
+    ctx.fillRect(px + 4, py + 8, 1, 1);
+    ctx.fillRect(px + 11, py + 8, 1, 1);
     if (level >= 6) {
       ctx.fillStyle = bright;
-      ctx.fillRect(px + 4, py + 6, 1, 1);
-      ctx.fillRect(px + 11, py + 6, 1, 1);
+      ctx.fillRect(px + 5, py + 7, 1, 1);
+      ctx.fillRect(px + 10, py + 7, 1, 1);
     }
   }
 
   if (level >= 7) {
-    // Weapon — sword blade on right side
+    // Spiked claws — extra claw pixels
     ctx.fillStyle = '#cccccc';
-    ctx.fillRect(px + 14, py + 5, 1, 4);
+    ctx.fillRect(px + 2, py + 2, 1, 1);
+    ctx.fillRect(px + 13, py + 2, 1, 1);
     ctx.fillStyle = '#ffffff';
-    ctx.fillRect(px + 14, py + 4, 1, 1);
-    // Crossguard
-    ctx.fillStyle = isTracked ? '#ccaa00' : '#009955';
-    ctx.fillRect(px + 13, py + 9, 3, 1);
+    ctx.fillRect(px + 1, py + 3, 1, 1);
+    ctx.fillRect(px + 14, py + 3, 1, 1);
     if (level >= 8) {
-      // Longer blade
       ctx.fillStyle = '#dddddd';
-      ctx.fillRect(px + 14, py + 3, 1, 1);
+      ctx.fillRect(px + 1, py + 2, 1, 1);
+      ctx.fillRect(px + 14, py + 2, 1, 1);
     }
   }
 
@@ -505,7 +517,6 @@ function drawLevelDecoration(ctx, px, py, level, isTracked) {
     ctx.fillRect(px + 8, py + 2, 1, 1);
     ctx.fillRect(px + 9, py + 2, 1, 1);
     if (level >= 10) {
-      // Extra crown tips
       ctx.fillStyle = '#ffdd00';
       ctx.fillRect(px + 7, py + 0, 2, 1);
     }
@@ -620,23 +631,7 @@ function animatePulse() {
     ctx.drawImage(sprites[a.spriteKey], px, py);
     drawLevelDecoration(ctx, px, py, a.level, a.isTracked);
 
-    if (a.isTracked) {
-      // Strong yellow pulse for tracked agent
-      const alpha = 0.4 + 0.4 * Math.sin(pulsePhase);
-      ctx.strokeStyle = `rgba(255, 221, 0, ${alpha})`;
-      ctx.lineWidth = 2;
-      ctx.strokeRect(px + 1, py + 1, TILE_SIZE - 2, TILE_SIZE - 2);
-      const glowAlpha = 0.15 + 0.15 * Math.sin(pulsePhase);
-      ctx.strokeStyle = `rgba(255, 221, 0, ${glowAlpha})`;
-      ctx.lineWidth = 1;
-      ctx.strokeRect(px, py, TILE_SIZE, TILE_SIZE);
-    } else {
-      // Subtle green pulse for all other agents
-      const alpha = 0.15 + 0.2 * Math.sin(pulsePhase);
-      ctx.strokeStyle = `rgba(0, 255, 136, ${alpha})`;
-      ctx.lineWidth = 1;
-      ctx.strokeRect(px + 1, py + 1, TILE_SIZE - 2, TILE_SIZE - 2);
-    }
+    // No outline — just redraw sprite cleanly
   }
 }
 
@@ -651,8 +646,8 @@ function initTooltip() {
     const rect = canvas.getBoundingClientRect();
     const mx = e.clientX - rect.left;
     const my = e.clientY - rect.top;
-    const tileX = Math.floor(mx / TILE_SIZE);
-    const tileY = Math.floor(my / TILE_SIZE);
+    const tileX = Math.floor(mx / DISPLAY_TILE);
+    const tileY = Math.floor(my / DISPLAY_TILE);
 
     if (tileX < 0 || tileY < 0 || tileX >= MAP_WIDTH || tileY >= MAP_HEIGHT) {
       tooltip.style.display = 'none';
@@ -664,13 +659,24 @@ function initTooltip() {
     if (agent) {
       tooltip.textContent = `${agent.name} (Lv${agent.level}) HP:${agent.hp}/${agent.max_hp}`;
       tooltip.style.display = 'block';
-      // Position tooltip near cursor but inside container
       const containerRect = container.getBoundingClientRect();
       tooltip.style.left = (e.clientX - containerRect.left + 12) + 'px';
       tooltip.style.top = (e.clientY - containerRect.top - 8) + 'px';
-    } else {
-      tooltip.style.display = 'none';
+      return;
     }
+
+    // Find NPC (prey) at this position
+    const npc = latestNpcs.find(n => n.x === tileX && n.y === tileY);
+    if (npc) {
+      tooltip.textContent = 'Prey — attack to heal!';
+      tooltip.style.display = 'block';
+      const containerRect = container.getBoundingClientRect();
+      tooltip.style.left = (e.clientX - containerRect.left + 12) + 'px';
+      tooltip.style.top = (e.clientY - containerRect.top - 8) + 'px';
+      return;
+    }
+
+    tooltip.style.display = 'none';
   });
 
   container.addEventListener('mouseleave', () => {
@@ -813,6 +819,8 @@ function formatEvent(e) {
       return `<div class="event-line event-respawn">${ts}↻ ${esc(e.data.name)} respawned</div>`;
     case 'agent_disconnected':
       return `<div class="event-line event-disconnect">${ts}— ${esc(e.data.name)} disconnected</div>`;
+    case 'npc_killed':
+      return `<div class="event-line event-gather">${ts}🦀 ${esc(e.data.name)} hunted prey (+${e.data.heal} HP)</div>`;
     default:
       return null;
   }

@@ -41,6 +41,44 @@ app.all('/mcp', handleMcpRequest as any);
 // Static files for spectator UI
 app.use(express.static(path.join(__dirname, '..', 'public')));
 
+// ── OAuth / well-known endpoints for MCP client compat ──
+// MCP clients (e.g. Claude Code) may attempt OAuth discovery before connecting.
+// These endpoints return proper JSON so the flow fails gracefully instead of
+// choking on Express's default HTML 404 page.
+
+app.get('/.well-known/oauth-authorization-server', (_req, res) => {
+  // Return metadata with no registration_endpoint — tells the client
+  // this server does not support dynamic client registration.
+  const baseUrl = `${_req.protocol}://${_req.get('host')}`;
+  res.json({
+    issuer: baseUrl,
+    authorization_endpoint: `${baseUrl}/authorize`,
+    token_endpoint: `${baseUrl}/token`,
+    response_types_supported: ['code'],
+    code_challenge_methods_supported: ['S256'],
+  });
+});
+
+app.get('/.well-known/oauth-protected-resource', (_req, res) => {
+  const baseUrl = `${_req.protocol}://${_req.get('host')}`;
+  res.json({
+    resource: `${baseUrl}/mcp`,
+  });
+});
+
+// Handle OAuth endpoints that clients may hit during discovery
+app.post('/register', (_req, res) => {
+  res.status(400).json({ error: 'invalid_request', error_description: 'This server does not require OAuth registration. Connect directly to /mcp.' });
+});
+
+app.post('/token', (_req, res) => {
+  res.status(400).json({ error: 'invalid_request', error_description: 'This server does not require OAuth tokens. Connect directly to /mcp.' });
+});
+
+app.get('/authorize', (_req, res) => {
+  res.status(400).json({ error: 'invalid_request', error_description: 'This server does not require OAuth authorization. Connect directly to /mcp.' });
+});
+
 // Health check
 app.get('/health', (_req, res) => {
   res.json({ status: 'ok', game: 'battleclaw', version: '0.1.0' });
@@ -49,6 +87,12 @@ app.get('/health', (_req, res) => {
 // API endpoint for current state (REST fallback) - rate limited
 app.get('/api/state', apiRateLimiter, (_req, res) => {
   res.json(getFullState());
+});
+
+// ── JSON catch-all for unmatched routes ─────────
+// Prevents Express from returning HTML 404s that break MCP client JSON parsing
+app.use((_req, res) => {
+  res.status(404).json({ error: 'not_found', error_description: `Cannot ${_req.method} ${_req.path}` });
 });
 
 // ── HTTP Server + WebSocket ──────────────────────

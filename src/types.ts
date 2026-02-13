@@ -120,6 +120,7 @@ export enum EventType {
   AGENT_USED_SKILL = 'agent_used_skill',
   RESOURCE_SPAWNED = 'resource_spawned',
   AGENT_DISCONNECTED = 'agent_disconnected',
+  NPC_KILLED = 'npc_killed',
 }
 
 export interface GameEvent {
@@ -184,6 +185,21 @@ export const RESOURCE_SPAWN_WEIGHTS: Record<ResourceType, number> = {
   [ResourceType.ARTIFACT]: 5,
 };
 
+// ── NPC (Prey) ──────────────────────────────────
+export interface NPC {
+  id: string;
+  x: number;
+  y: number;
+  alive: boolean;
+  respawn_at: number | null;
+}
+
+export const MAX_NPCS = 15;
+export const NPC_HEAL_AMOUNT = 15;
+export const NPC_XP_REWARD = 10;
+export const NPC_RESPAWN_MS = 15000; // 15 seconds
+export const NPC_SYMBOL = 'p';
+
 // ── XP Rewards ───────────────────────────────────
 export const XP_REWARDS = {
   kill: 50,
@@ -192,6 +208,7 @@ export const XP_REWARDS = {
   gather_biomass: 5,
   gather_artifact: 40,
   attack_hit: 5,
+  npc_kill: 10,
 } as const;
 
 // ── Direction Vectors ────────────────────────────

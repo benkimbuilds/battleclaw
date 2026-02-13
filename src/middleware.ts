@@ -65,8 +65,8 @@ function createRateLimiter(maxRequests: number, windowMs: number) {
 
 // ── Exported Middleware ──────────────────────────
 
-// /mcp: 1 request/second per IP
-export const mcpRateLimiter = createRateLimiter(1, 1000);
+// /mcp: 5 requests/second per IP (MCP protocol needs multiple rapid exchanges during handshake)
+export const mcpRateLimiter = createRateLimiter(5, 1000);
 
 // /api/state: 5 requests/second per IP
 export const apiRateLimiter = createRateLimiter(5, 1000);

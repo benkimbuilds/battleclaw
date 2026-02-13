@@ -160,6 +160,10 @@ export function updateAgent(agent: Agent): void {
   );
 }
 
+export function updateAgentName(agent: Agent): void {
+  getDb().prepare('UPDATE agents SET name = ? WHERE id = ?').run(agent.name, agent.id);
+}
+
 export function getAgentById(id: string): Agent | null {
   const row = getDb().prepare('SELECT * FROM agents WHERE id = ?').get(id) as Record<string, unknown> | undefined;
   return row ? rowToAgent(row) : null;

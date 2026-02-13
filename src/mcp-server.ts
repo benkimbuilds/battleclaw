@@ -9,7 +9,7 @@ import type { Request, Response } from 'express';
 import {
   register, look, move, attack, gather, communicate, getMessages,
   levelUpSkill, useSkill, getStatus, getNearby, disconnectSession,
-  reconnectAgent, getFullState,
+  reconnectAgent, renameAgent, getFullState,
 } from './game-engine.js';
 import { getAgentBySession } from './database.js';
 
@@ -47,11 +47,27 @@ function createMcpServer(): McpServer {
             `Position: (${a.x}, ${a.y})`,
             `HP: ${a.hp}/${a.max_hp} | Level: ${a.level} | XP: ${a.xp}/${a.xp_to_next}`,
             ``,
-            `Commands: look, move, attack, gather, communicate, status, nearby, level_up_skill, use_skill, messages`,
-            `Directions: north, south, east, west, northeast, northwest, southeast, southwest`,
+            `── GAME RULES ──`,
+            `You are an agent in a 50x50 arena. Explore, gather resources, hunt prey, and fight other agents.`,
             ``,
-            `TIP: The Safe Haven zone (21,21)-(29,29) in the center of the map disables all combat.`,
-            `TIP: Use "heal" skill (costs 1 biomass) or visit the Safe Haven for passive HP regeneration.`,
+            `MOVEMENT: 8 directions — north, south, east, west, northeast, northwest, southeast, southwest`,
+            `  Water (~) slows movement. Walls (#) and mountains (^) are impassable.`,
+            ``,
+            `COMBAT: Attack adjacent agents or prey. Damage = 5 + ATK + Might×3 − target DEF − Fortitude×2.`,
+            `  Killing an agent: +50 XP. Killing prey (p): instant kill, heals ${15} HP, +10 XP.`,
+            `  Death: respawn after 10s at a random location. You keep all stats.`,
+            ``,
+            `RESOURCES: Move onto a resource tile and "gather" to collect it.`,
+            `  ⊕ Energy Crystal: +15 XP  |  ◆ Metal Ore: +5 XP  |  ♣ Biomass: healing item  |  ★ Artifact: +40 XP`,
+            ``,
+            `SKILLS: Level up to earn skill points. Spend them on:`,
+            `  Might (damage), Fortitude (HP/defense), Agility (cooldowns), Perception (vision), Harvesting (gather bonus)`,
+            ``,
+            `ABILITIES: heal (1 biomass → restore HP), power_strike (Might 3+, 2× damage), scout (Perception 2+, wide scan)`,
+            ``,
+            `SAFE HAVEN: Zone (21,21)-(29,29) — no combat, passive HP regen each tick.`,
+            ``,
+            `TOOLS: look, move, attack, gather, communicate, status, nearby, level_up_skill, use_skill, messages, rename, game_state`,
           ].join('\n'),
         }],
       };
@@ -80,10 +96,32 @@ function createMcpServer(): McpServer {
     },
   );
 
+  // ── rename ───────────────────────────────────
+  server.tool(
+    'rename',
+    'Rename your agent. Must be authenticated (registered/reconnected). New name must be unique, 2-20 chars, alphanumeric.',
+    {
+      new_name: z.string().min(2).max(20).describe('Your new agent name (alphanumeric, _, -)'),
+    },
+    async (params, extra) => {
+      const sessionId = (extra as any).sessionId ?? 'unknown';
+      const agent = getAgentBySession(sessionId);
+      if (!agent) return { content: [{ type: 'text' as const, text: 'ERROR: Not registered. Use the "register" tool first.' }] };
+      const result = renameAgent(agent.id, params.new_name);
+      if (!result.ok) return { content: [{ type: 'text' as const, text: `ERROR: ${result.error}` }] };
+      return {
+        content: [{
+          type: 'text' as const,
+          text: `Renamed from "${result.old_name}" to "${result.new_name}".`,
+        }],
+      };
+    },
+  );
+
   // ── look ─────────────────────────────────────
   server.tool(
     'look',
-    'Look around you. Returns an ASCII map of your visible area, nearby agents, and nearby resources. @ = you, A = other agent, ⊕ = energy crystal, ◆ = metal ore, ♣ = biomass, ★ = artifact, # = wall, ~ = water, ^ = mountain',
+    'Look around you. Returns an ASCII map of your visible area, nearby agents, and nearby resources. @ = you, A = other agent, p = prey (attack to heal!), ⊕ = energy crystal, ◆ = metal ore, ♣ = biomass, ★ = artifact, # = wall, ~ = water, ^ = mountain',
     {},
     async (_params, extra) => {
       const sessionId = (extra as any).sessionId ?? 'unknown';
@@ -101,6 +139,9 @@ function createMcpServer(): McpServer {
             result.agents_nearby.length > 0
               ? `Agents: ${result.agents_nearby.map(a => `${a.name} (${a.x},${a.y}) Lv${a.level} HP:${a.hp}`).join(' | ')}`
               : 'No agents nearby.',
+            result.npcs_nearby.length > 0
+              ? `Prey: ${result.npcs_nearby.map(n => `prey (${n.x},${n.y})`).join(' | ')} — attack to heal!`
+              : '',
             result.resources_nearby.length > 0
               ? `Resources: ${result.resources_nearby.map(r => `${r.symbol} ${r.type} (${r.x},${r.y})`).join(' | ')}`
               : 'No resources nearby.',
@@ -134,7 +175,7 @@ function createMcpServer(): McpServer {
   // ── attack ───────────────────────────────────
   server.tool(
     'attack',
-    'Attack an adjacent agent in a direction. Must have another agent on the adjacent tile. Deals damage based on your attack stat and Might skill.',
+    'Attack an adjacent agent or prey in a direction. Killing prey heals you and grants XP. Must have a target on the adjacent tile.',
     { direction: z.string().describe('Direction to attack (must have adjacent agent)') },
     async (params, extra) => {
       const sessionId = (extra as any).sessionId ?? 'unknown';
@@ -145,9 +186,11 @@ function createMcpServer(): McpServer {
       return {
         content: [{
           type: 'text' as const,
-          text: result.killed
-            ? `☠ KILL! Dealt ${result.damage} damage to ${result.target}. They are dead!`
-            : `⚔ Hit ${result.target} for ${result.damage} damage. Their HP: ${result.target_hp}`,
+          text: result.target === 'prey'
+            ? `🦀 Killed prey! Healed HP. +${10} XP`
+            : result.killed
+              ? `☠ KILL! Dealt ${result.damage} damage to ${result.target}. They are dead!`
+              : `⚔ Hit ${result.target} for ${result.damage} damage. Their HP: ${result.target_hp}`,
         }],
       };
     },
@@ -427,7 +470,7 @@ export async function handleMcpRequest(req: Request, res: Response): Promise<voi
   if (req.method === 'GET') {
     // SSE stream for notifications
     if (!sessionId || !transports.has(sessionId)) {
-      res.status(400).json({ error: 'Missing or invalid session ID' });
+      res.status(405).json({ error: 'Method not allowed. POST to initialize a session first.' });
       return;
     }
     const transport = transports.get(sessionId)!;
