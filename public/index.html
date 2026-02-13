@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>BATTLECLAW — Arena Spectator</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <div id="app">
+    <header id="header">
+      <pre id="logo">╔══════════════════════════════════════╗
+║    B A T T L E C L A W         ⚔    ║
+╚══════════════════════════════════════╝</pre>
+      <div id="connection-status">
+        <span id="status-dot">●</span>
+        <span id="status-text">CONNECTING...</span>
+      </div>
+    </header>
+
+    <div id="tracking-bar">
+      <label for="track-input">TRACK&gt;</label>
+      <input type="text" id="track-input" placeholder="agent name or id..." autocomplete="off" spellcheck="false">
+      <button id="track-clear" title="Clear tracking">&times;</button>
+      <span id="track-status"></span>
+    </div>
+
+    <div id="main">
+      <div id="map-panel">
+        <div class="panel-header">═══ ARENA ═══</div>
+        <div id="map-legend"></div>
+        <div id="game-map-container">
+          <canvas id="game-map"></canvas>
+          <div id="map-tooltip"></div>
+        </div>
+      </div>
+
+      <div id="side-panel">
+        <div id="leaderboard-panel">
+          <div class="panel-header">═══ LEADERBOARD ═══</div>
+          <div id="leaderboard">No agents yet.</div>
+        </div>
+
+        <div id="agents-panel">
+          <div class="panel-header">═══ AGENTS ═══</div>
+          <div id="agents-list">No agents connected.</div>
+        </div>
+
+        <div id="events-panel">
+          <div class="panel-header">═══ COMBAT LOG ═══</div>
+          <div id="events-log">Waiting for events...</div>
+        </div>
+      </div>
+    </div>
+
+    <footer id="footer">
+      <span>BATTLECLAW v0.1.0</span>
+      <span id="agent-count">0 agents</span>
+      <span id="resource-count">0 resources</span>
+      <span id="tick-counter">tick: 0</span>
+    </footer>
+  </div>
+
+  <script src="/client.js"></script>
+</body>
+</html>

@@ -1,0 +1,400 @@
+/* ═══════════════════════════════════════════════
+   B A T T L E C L A W  —  Spectator Styles
+   ═══════════════════════════════════════════════ */
+
+:root {
+  --bg: #0a0a0a;
+  --bg-panel: #111111;
+  --border: #2a2a2a;
+  --text: #c0c0c0;
+  --text-dim: #555555;
+  --text-bright: #ffffff;
+  --accent: #00ff88;
+  --danger: #ff4444;
+  --warning: #ffaa00;
+  --info: #44aaff;
+  --resource-energy: #ffff44;
+  --resource-metal: #aaaaaa;
+  --resource-bio: #44ff44;
+  --resource-artifact: #ff44ff;
+  --agent: #00ff88;
+  --wall: #444444;
+  --water: #2244aa;
+  --mountain: #886644;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Berkeley Mono', 'JetBrains Mono', 'Fira Code', 'SF Mono', 'Cascadia Code', 'Consolas', monospace;
+  font-size: 13px;
+  line-height: 1.4;
+  overflow: hidden;
+  height: 100vh;
+}
+
+#app {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  padding: 8px;
+  gap: 8px;
+}
+
+/* ── Header ──────────────────────────────────── */
+
+#header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 16px;
+}
+
+#logo {
+  font-size: 16px;
+  line-height: 1.3;
+  color: var(--accent);
+  text-shadow: 0 0 10px rgba(0, 255, 136, 0.3);
+  letter-spacing: 2px;
+}
+
+#connection-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+}
+
+#status-dot {
+  font-size: 14px;
+  color: var(--warning);
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+#status-dot.connected {
+  color: var(--accent);
+  animation: none;
+}
+
+#status-dot.error {
+  color: var(--danger);
+  animation: pulse 0.5s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}
+
+/* ── Tracking Bar ────────────────────────────── */
+
+#tracking-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 16px;
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+#tracking-bar label {
+  color: var(--accent);
+  font-weight: bold;
+  font-size: 12px;
+  letter-spacing: 1px;
+  white-space: nowrap;
+}
+
+#track-input {
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid var(--border);
+  color: var(--text-bright);
+  font-family: inherit;
+  font-size: 12px;
+  padding: 2px 4px;
+  width: 180px;
+  outline: none;
+}
+
+#track-input:focus {
+  border-bottom-color: var(--accent);
+}
+
+#track-input::placeholder {
+  color: var(--text-dim);
+}
+
+#track-clear {
+  background: none;
+  border: 1px solid var(--border);
+  color: var(--text-dim);
+  font-size: 14px;
+  cursor: pointer;
+  padding: 0 6px;
+  line-height: 1.4;
+  font-family: inherit;
+  display: none;
+}
+
+#track-clear:hover {
+  color: var(--danger);
+  border-color: var(--danger);
+}
+
+#track-clear.visible {
+  display: inline-block;
+}
+
+#track-status {
+  font-size: 11px;
+  letter-spacing: 1px;
+  white-space: nowrap;
+}
+
+#track-status.status-locked { color: #ffdd00; }
+#track-status.status-dead { color: var(--danger); }
+#track-status.status-lost { color: var(--text-dim); }
+
+/* ── Main Layout ─────────────────────────────── */
+
+#main {
+  display: flex;
+  gap: 8px;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* ── Map Panel ───────────────────────────────── */
+
+#map-panel {
+  flex: 1;
+  border: 1px solid var(--border);
+  background: var(--bg-panel);
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  overflow: hidden;
+}
+
+#game-map-container {
+  flex: 1;
+  overflow: auto;
+  position: relative;
+}
+
+#game-map {
+  display: block;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+}
+
+#map-tooltip {
+  position: absolute;
+  pointer-events: none;
+  background: rgba(0, 0, 0, 0.85);
+  color: var(--text-bright);
+  font-size: 11px;
+  padding: 3px 8px;
+  border: 1px solid var(--accent);
+  white-space: nowrap;
+  display: none;
+  z-index: 10;
+}
+
+/* ── Side Panel ──────────────────────────────── */
+
+#side-panel {
+  width: 360px;
+  min-width: 360px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  overflow: hidden;
+}
+
+#leaderboard-panel,
+#agents-panel,
+#events-panel {
+  border: 1px solid var(--border);
+  background: var(--bg-panel);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+#leaderboard-panel {
+  flex: 0 0 auto;
+  max-height: 180px;
+}
+
+#agents-panel {
+  flex: 1;
+  min-height: 0;
+}
+
+#events-panel {
+  flex: 1;
+  min-height: 0;
+}
+
+.panel-header {
+  padding: 6px 12px;
+  color: var(--accent);
+  font-weight: bold;
+  border-bottom: 1px solid var(--border);
+  font-size: 11px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  flex-shrink: 0;
+}
+
+#leaderboard,
+#agents-list,
+#events-log {
+  padding: 8px 12px;
+  overflow-y: auto;
+  font-size: 12px;
+  flex: 1;
+  min-height: 0;
+}
+
+/* ── Leaderboard ─────────────────────────────── */
+
+.lb-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 2px 0;
+  border-bottom: 1px solid #1a1a1a;
+}
+
+.lb-rank { color: var(--text-dim); width: 24px; }
+.lb-name { color: var(--text-bright); flex: 1; }
+.lb-kd { color: var(--danger); width: 60px; text-align: right; }
+.lb-level { color: var(--info); width: 40px; text-align: right; }
+
+/* ── Agent Cards ─────────────────────────────── */
+
+.agent-card {
+  padding: 6px 0;
+  border-bottom: 1px solid #1a1a1a;
+}
+
+.agent-name {
+  color: var(--agent);
+  font-weight: bold;
+  cursor: pointer;
+}
+
+.agent-name:hover {
+  color: #ffdd00;
+}
+
+.lb-name {
+  cursor: pointer;
+}
+
+.lb-name:hover {
+  color: #ffdd00;
+}
+
+.agent-card-tracked {
+  border-left: 2px solid #ffdd00;
+  padding-left: 6px;
+}
+
+.agent-dead .agent-name {
+  color: var(--danger);
+  text-decoration: line-through;
+}
+
+.agent-stats {
+  color: var(--text-dim);
+  font-size: 11px;
+}
+
+.hp-bar {
+  display: inline-block;
+  width: 80px;
+}
+
+.hp-fill {
+  color: var(--accent);
+}
+
+.hp-empty {
+  color: var(--border);
+}
+
+/* ── Events Log ──────────────────────────────── */
+
+.event-line {
+  padding: 1px 0;
+  word-wrap: break-word;
+}
+
+.event-kill { color: var(--danger); }
+.event-attack { color: var(--warning); }
+.event-register { color: var(--accent); }
+.event-level { color: var(--info); }
+.event-gather { color: var(--resource-energy); }
+.event-comm { color: var(--text-dim); font-style: italic; }
+.event-respawn { color: var(--accent); }
+.event-disconnect { color: var(--text-dim); }
+.event-time { color: var(--text-dim); font-size: 10px; }
+
+/* ── Map Legend ──────────────────────────────── */
+
+#map-legend {
+  padding: 4px 12px;
+  border-bottom: 1px solid var(--border);
+  font-size: 11px;
+  color: var(--text-dim);
+  letter-spacing: 0.5px;
+  flex-shrink: 0;
+  white-space: nowrap;
+  overflow-x: auto;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+#map-legend .legend-sep {
+  color: var(--border);
+  margin: 0 2px;
+}
+
+#map-legend canvas {
+  vertical-align: middle;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+}
+
+/* (map sprites rendered via canvas — no text color classes needed) */
+
+/* ── Footer ──────────────────────────────────── */
+
+#footer {
+  display: flex;
+  justify-content: space-between;
+  padding: 4px 16px;
+  border-top: 1px solid var(--border);
+  color: var(--text-dim);
+  font-size: 11px;
+  flex-shrink: 0;
+}
+
+/* ── Scrollbar ───────────────────────────────── */
+
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { background: var(--bg-panel); }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+::-webkit-scrollbar-thumb:hover { background: var(--text-dim); }
