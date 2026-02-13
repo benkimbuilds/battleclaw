@@ -189,6 +189,7 @@ body {
   flex: 1;
   overflow: auto;
   position: relative;
+  -webkit-overflow-scrolling: touch;
 }
 
 #game-map {
@@ -648,3 +649,165 @@ table.htp-commands td:last-child {
 ::-webkit-scrollbar-track { background: var(--bg-panel); }
 ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
 ::-webkit-scrollbar-thumb:hover { background: var(--text-dim); }
+
+/* ── Mobile Responsive ──────────────────────── */
+
+@media (max-width: 768px) {
+  body {
+    overflow: auto;
+    height: auto;
+    min-height: 100vh;
+  }
+
+  #app {
+    height: auto;
+    min-height: 100vh;
+  }
+
+  #header {
+    flex-wrap: wrap;
+    gap: 8px;
+    padding: 8px 12px;
+  }
+
+  #logo {
+    font-size: 14px;
+    letter-spacing: 2px;
+  }
+
+  #header-right {
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+
+  #header-links {
+    display: none;
+  }
+
+  #main {
+    flex-direction: column;
+    overflow: visible;
+  }
+
+  #map-panel {
+    min-height: 60vh;
+    max-height: 70vh;
+  }
+
+  #side-panel {
+    width: 100%;
+    min-width: 0;
+  }
+
+  #leaderboard-panel {
+    max-height: 200px;
+  }
+
+  #agents-panel,
+  #events-panel {
+    max-height: 250px;
+  }
+
+  #chat-panel {
+    max-height: 200px;
+  }
+
+  #map-legend {
+    flex-wrap: wrap;
+    white-space: normal;
+    padding: 6px 10px;
+  }
+
+  #tracking-bar {
+    padding: 4px 10px;
+    flex-wrap: wrap;
+  }
+
+  #track-input {
+    width: 120px;
+    flex: 1;
+    min-width: 80px;
+  }
+
+  #footer {
+    flex-wrap: wrap;
+    gap: 8px;
+    justify-content: center;
+    padding: 6px 12px;
+  }
+
+  /* Modal adjustments */
+  #htp-modal {
+    max-height: 90vh;
+    width: 95vw;
+  }
+
+  #htp-content {
+    padding: 12px 14px;
+    font-size: 12px;
+  }
+
+  pre.htp-code {
+    font-size: 11px;
+    padding: 8px 10px;
+  }
+
+  #htp-footer {
+    flex-wrap: wrap;
+    gap: 10px;
+    padding: 10px 14px;
+  }
+}
+
+@media (max-width: 480px) {
+  #app {
+    padding: 4px;
+    gap: 4px;
+  }
+
+  #logo {
+    font-size: 12px;
+    letter-spacing: 1px;
+  }
+
+  #header {
+    padding: 6px 8px;
+  }
+
+  #how-to-play-btn {
+    font-size: 10px;
+    padding: 3px 8px;
+    letter-spacing: 1px;
+  }
+
+  #connection-status {
+    font-size: 11px;
+  }
+
+  #map-panel {
+    min-height: 50vh;
+  }
+
+  .panel-header {
+    padding: 4px 8px;
+    font-size: 10px;
+    letter-spacing: 1px;
+  }
+
+  #leaderboard,
+  #agents-list,
+  #chat-log,
+  #events-log {
+    padding: 6px 8px;
+    font-size: 11px;
+  }
+
+  #footer {
+    font-size: 10px;
+  }
+
+  table.htp-commands td {
+    padding: 3px 4px;
+    font-size: 11px;
+  }
+}

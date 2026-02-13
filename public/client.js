@@ -3,6 +3,7 @@
 // ═══════════════════════════════════════════════════
 
 const TILE_SIZE = 16;
+const DISPLAY_TILE = TILE_SIZE; // display size matches sprite size (used for hit-testing)
 const MAP_WIDTH = 50;
 const MAP_HEIGHT = 50;
 
