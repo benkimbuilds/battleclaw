@@ -714,7 +714,7 @@ export function getFullState(): {
 } {
   const agents = getAllAgents();
   const resources = getAllResources();
-  const events = getRecentEvents(30);
+  const events = getRecentEvents(100);
 
   // Build composite map
   const compositeMap: string[][] = [];

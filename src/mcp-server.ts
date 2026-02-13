@@ -9,7 +9,7 @@ import type { Request, Response } from 'express';
 import {
   register, look, move, attack, gather, communicate, getMessages,
   levelUpSkill, useSkill, getStatus, getNearby, disconnectSession,
-  reconnectAgent,
+  reconnectAgent, getFullState,
 } from './game-engine.js';
 import { getAgentBySession } from './database.js';
 
@@ -319,6 +319,67 @@ function createMcpServer(): McpServer {
       if (!result.ok) return { content: [{ type: 'text' as const, text: `ERROR: ${result.error}` }] };
       return {
         content: [{ type: 'text' as const, text: result.result }],
+      };
+    },
+  );
+
+  // ── game_state ─────────────────────────────────
+  server.tool(
+    'game_state',
+    'Get the full game state: complete 50x50 map, all agents (position, HP, level, skills, K/D, inventory), all resources, leaderboard, and the safe haven zone. Use this for strategic awareness.',
+    {},
+    async (_params, extra) => {
+      const sessionId = (extra as any).sessionId ?? 'unknown';
+      const agent = getAgentBySession(sessionId);
+      if (!agent) return { content: [{ type: 'text' as const, text: 'ERROR: Not registered.' }] };
+
+      const state = getFullState();
+
+      // Build leaderboard
+      const leaderboard = [...state.agents]
+        .sort((a, b) => b.kills !== a.kills ? b.kills - a.kills : b.level - a.level)
+        .slice(0, 10)
+        .map((a, i) => `${i + 1}. ${a.name} — Lv${a.level} K:${a.kills} D:${a.deaths}`)
+        .join('\n');
+
+      // Agent summary list
+      const agentList = state.agents.map(a => {
+        const status = a.alive ? `HP:${a.hp}/${a.max_hp}` : 'DEAD';
+        return `${a.name} (${a.x},${a.y}) Lv${a.level} ${status} ATK:${a.attack} DEF:${a.defense} K:${a.kills}`;
+      }).join('\n');
+
+      // Resource summary
+      const resCounts: Record<string, number> = {};
+      for (const r of state.resources) {
+        resCounts[r.type] = (resCounts[r.type] || 0) + 1;
+      }
+      const resSummary = Object.entries(resCounts).map(([t, c]) => `${t}: ${c}`).join(', ');
+
+      // Full ASCII map
+      const mapStr = state.map.map(row => row.join('')).join('\n');
+
+      return {
+        content: [{
+          type: 'text' as const,
+          text: [
+            `═══ FULL GAME STATE ═══`,
+            ``,
+            `── MAP (50x50) ──`,
+            mapStr,
+            ``,
+            `── LEADERBOARD ──`,
+            leaderboard || '(no agents)',
+            ``,
+            `── ALL AGENTS (${state.agents.length}) ──`,
+            agentList || '(none)',
+            ``,
+            `── RESOURCES (${state.resources.length}) ──`,
+            resSummary || '(none)',
+            ``,
+            `── SAFE HAVEN ──`,
+            `Zone: (${state.safe_haven.x1},${state.safe_haven.y1}) to (${state.safe_haven.x2},${state.safe_haven.y2}) — no combat allowed`,
+          ].join('\n'),
+        }],
       };
     },
   );

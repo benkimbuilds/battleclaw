@@ -418,9 +418,22 @@ function connect() {
 
 // ── Render State ─────────────────────────────────
 
+let eventsLoaded = false;
+
 function renderState(state) {
   latestAgents = state.agents;
   if (state.safe_haven) safeHaven = state.safe_haven;
+
+  // Load persisted events on first state message
+  if (!eventsLoaded && state.events && state.events.length > 0) {
+    eventsLoaded = true;
+    // Events come newest-first from server — process in reverse to build log correctly
+    const sorted = [...state.events].sort((a, b) => a.timestamp - b.timestamp);
+    for (const e of sorted) {
+      appendEvent(e);
+    }
+  }
+
   renderMap(state.map, state.agents);
   renderLeaderboard(state.agents);
   renderAgents(state.agents);
@@ -540,14 +553,43 @@ function renderMap(map, agents) {
     const py = a.y * TILE_SIZE;
     ctx.drawImage(sprites[spriteKey], px, py);
     drawLevelDecoration(ctx, px, py, a.level, isTracked);
-    aliveAgentSnapshot.push({ x: a.x, y: a.y, level: a.level, isTracked, spriteKey });
+    aliveAgentSnapshot.push({ x: a.x, y: a.y, level: a.level, isTracked, spriteKey, name: a.name });
     if (isTracked) {
       lastTrackedPos = { x: a.x, y: a.y };
     }
   }
 
+  // Render persistent name labels
+  renderNameLabels(agents);
+
   // Restart pulse animation
   startPulseAnimation();
+}
+
+// ── Persistent Name Labels ───────────────────────
+
+let labelContainer = null;
+
+function renderNameLabels(agents) {
+  const container = document.getElementById('game-map-container');
+
+  // Create or reuse the label container (sits on top of canvas)
+  if (!labelContainer) {
+    labelContainer = document.createElement('div');
+    labelContainer.id = 'agent-labels';
+    container.appendChild(labelContainer);
+  }
+
+  let html = '';
+  for (const a of agents) {
+    if (!a.alive) continue;
+    const isTracked = trackedAgentName && a.name.toLowerCase() === trackedAgentName.toLowerCase();
+    const cls = isTracked ? 'agent-label tracked' : 'agent-label';
+    const left = a.x * TILE_SIZE + TILE_SIZE / 2;
+    const top = a.y * TILE_SIZE - 2;
+    html += `<div class="${cls}" style="left:${left}px;top:${top}px">${escapeHtml(a.name)}</div>`;
+  }
+  labelContainer.innerHTML = html;
 }
 
 // ── Agent Pulse Animation ────────────────────────
@@ -719,7 +761,9 @@ function renderAgents(agents) {
 // ── Events ───────────────────────────────────────
 
 const MAX_EVENTS = 100;
+const MAX_CHAT = 50;
 const eventLines = [];
+const chatLines = [];
 
 function appendEvent(event) {
   const line = formatEvent(event);
@@ -729,6 +773,23 @@ function appendEvent(event) {
 
   const el = document.getElementById('events-log');
   el.innerHTML = eventLines.join('');
+
+  // Also feed chat messages to the chat panel
+  if (event.type === 'agent_communicated') {
+    appendChat(event);
+  }
+}
+
+function appendChat(event) {
+  const time = new Date(event.timestamp).toLocaleTimeString();
+  const name = esc(event.data.name);
+  const msg = esc(event.data.message);
+  const line = `<div class="chat-msg"><span class="chat-time">[${time}]</span> <span class="chat-name" data-agent-name="${name}">${name}</span>: <span class="chat-text">"${msg}"</span></div>`;
+  chatLines.unshift(line);
+  if (chatLines.length > MAX_CHAT) chatLines.pop();
+
+  const el = document.getElementById('chat-log');
+  el.innerHTML = chatLines.join('');
 }
 
 function formatEvent(e) {
